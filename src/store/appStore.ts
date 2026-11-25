@@ -112,17 +112,9 @@ function toTarget(programActivity: ProgramActivity, activity: Activity): Target 
 
 function lastActivityFor(
   sessions: Session[],
-  programId: string | null,
   activityId: string,
 ): SessionActivity | null {
   const sorted = [...sessions].sort((a, b) => b.completedAt.localeCompare(a.completedAt));
-  if (programId) {
-    for (const session of sorted) {
-      if (session.programId !== programId) continue;
-      const activity = session.activities.find((item) => item.activityId === activityId);
-      if (activity) return activity;
-    }
-  }
   for (const session of sorted) {
     const activity = session.activities.find((item) => item.activityId === activityId);
     if (activity) return activity;
@@ -139,12 +131,15 @@ function buildSessionActivity(
   const usesSets = activity.fields.includes('sets');
   const workingSets = previous?.sets.filter((set) => (set.kind ?? 'working') === 'working') ?? [];
   const defaultSetCount = target.sets ?? 1;
+  const defaultReps = target.repsText
+    ? null
+    : (target.repsMin ?? target.repsMax ?? null);
   const sets: SessionSet[] = usesSets
     ? workingSets.length
       ? workingSets.map((set) => ({ id: createId('set'), reps: set.reps, weightKg: set.weightKg }))
       : Array.from({ length: Math.max(1, defaultSetCount) }, () => ({
           id: createId('set'),
-          reps: null,
+          reps: defaultReps,
           weightKg: null,
         }))
     : [];
@@ -268,7 +263,7 @@ export const useAppStore = create<AppStore>()(
               return buildSessionActivity(
                 entry,
                 activity,
-                lastActivityFor(state.sessions, program.id, activity.id),
+                lastActivityFor(state.sessions, activity.id),
               );
             })
             .filter((activity): activity is SessionActivity => Boolean(activity)),
@@ -458,11 +453,8 @@ export function getProgramLastCompleted(programId: string): string | null {
   return latest;
 }
 
-export function getLastActivityPerformance(
-  programId: string,
-  activityId: string,
-): SessionActivity | null {
-  return lastActivityFor(useAppStore.getState().sessions, programId, activityId);
+export function getLastActivityPerformance(activityId: string): SessionActivity | null {
+  return lastActivityFor(useAppStore.getState().sessions, activityId);
 }
 
 export function getRecordsCount(): number {

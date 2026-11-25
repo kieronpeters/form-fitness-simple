@@ -57,6 +57,20 @@ describe('workout store', () => {
     expect(useAppStore.getState().sessions).toHaveLength(1);
   });
 
+  it('prefills programme target defaults when an exercise has no history', () => {
+    const { bench, active } = startPush();
+    expect(bench.sets).toHaveLength(3);
+    expect(bench.sets.map((set) => set.reps)).toEqual([8, 8, 8]);
+    expect(bench.sets.every((set) => set.weightKg == null)).toBe(true);
+    const pushUps = active.activities.find((activity) => activity.activityId === 'push-up');
+    expect(pushUps?.sets.every((set) => set.reps == null)).toBe(true);
+    const treadmill = active.activities.find((activity) => activity.activityId === 'treadmill');
+    expect(treadmill?.durationSec).toBe(300);
+    expect(treadmill?.speedKmh).toBe(5);
+    expect(treadmill?.incline).toBe(9);
+    useAppStore.getState().discardWorkout();
+  });
+
   it('prefills the next session with the last performance', () => {
     const first = startPush();
     useAppStore.getState().updateActiveSet(first.bench.id, first.bench.sets[0].id, { reps: 12, weightKg: 42.5 });
@@ -66,6 +80,32 @@ describe('workout store', () => {
     expect(second.bench.sets[0].reps).toBe(12);
     expect(second.bench.sets[0].weightKg).toBe(42.5);
     expect(second.bench.target.repsMin).toBe(8);
+    useAppStore.getState().discardWorkout();
+  });
+
+  it('uses the latest exercise history even when it came from a different programme', () => {
+    const startProgram = (needle: string) => {
+      const program = useAppStore.getState().programs.find((item) => item.name.includes(needle));
+      expect(program).toBeTruthy();
+      const id = useAppStore.getState().startWorkout(program!.id);
+      expect(id).toBeTruthy();
+      const active = useAppStore.getState().activeSession!;
+      const legExtension = active.activities.find((activity) => activity.activityId === 'leg-extension');
+      expect(legExtension).toBeTruthy();
+      return { active, legExtension: legExtension! };
+    };
+
+    const day3 = startProgram('Day 3');
+    useAppStore.getState().updateActiveSet(day3.legExtension.id, day3.legExtension.sets[0].id, { reps: 12, weightKg: 50 });
+    useAppStore.getState().finishWorkout();
+
+    const day5 = startProgram('Day 5');
+    useAppStore.getState().updateActiveSet(day5.legExtension.id, day5.legExtension.sets[0].id, { reps: 15, weightKg: 60 });
+    useAppStore.getState().finishWorkout();
+
+    const day3Again = startProgram('Day 3');
+    expect(day3Again.legExtension.sets[0].reps).toBe(15);
+    expect(day3Again.legExtension.sets[0].weightKg).toBe(60);
     useAppStore.getState().discardWorkout();
   });
 

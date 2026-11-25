@@ -31,17 +31,9 @@ import { Modal } from '../components/Modal';
 
 function previousFor(
   sessions: ReturnType<typeof useAppStore.getState>['sessions'],
-  programId: string | null,
   activityId: string,
 ): SessionActivity | null {
   const sorted = [...sessions].sort((a, b) => b.completedAt.localeCompare(a.completedAt));
-  if (programId) {
-    for (const session of sorted) {
-      if (session.programId !== programId) continue;
-      const activity = session.activities.find((item) => item.activityId === activityId);
-      if (activity) return activity;
-    }
-  }
   for (const session of sorted) {
     const activity = session.activities.find((item) => item.activityId === activityId);
     if (activity) return activity;
@@ -95,7 +87,7 @@ export function ActiveWorkoutPage() {
   const previousMap = useMemo(() => {
     const map = new Map<string, SessionActivity | null>();
     for (const activity of activeSession?.activities ?? []) {
-      map.set(activity.id, previousFor(sessions, activeSession?.programId ?? null, activity.activityId));
+      map.set(activity.id, previousFor(sessions, activity.activityId));
     }
     return map;
   }, [activeSession, sessions]);

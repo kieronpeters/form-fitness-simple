@@ -31,31 +31,34 @@ test('logs a workout, shows PR feedback, history and real statistics', async ({ 
 
   await page.getByRole('button', { name: 'View workout details' }).click();
   await expect(page.getByRole('heading', { name: 'Workout Details' })).toBeVisible();
-  await expect(page.getByText('2 sets · 10 / 10 reps · 60 kg')).toBeVisible();
+  await expect(page.getByText('3 sets · 10 / 10 / 8 reps · 60 kg')).toBeVisible();
 
   await page.goto('/statistics');
   await expect(page.getByText('1', { exact: true }).first()).toBeVisible();
   await expect(page.getByText('1,200 kg')).toBeVisible();
-  await expect(page.getByText('2', { exact: true }).first()).toBeVisible();
-  await expect(page.getByText('20', { exact: true })).toBeVisible();
+  await expect(page.getByText('Workouts Completed')).toBeVisible();
   await expect(page.getByText('Bench Press', { exact: true })).toBeVisible();
 
   await page.goto('/');
   await expect(page.getByText('Last completed')).toBeVisible();
 });
 
-test('prefills the last performance and leaves the target visible', async ({ page }) => {
+test('prefills programme defaults with no history, then last performance afterwards', async ({ page }) => {
   await startPush(page);
-  await fillBench(page, '12', '42.5', '10', '42.5');
+  const bench = page.locator('.workout-activity').filter({ hasText: 'Bench Press' }).first();
+  await expect(bench.getByLabel('Set 1 reps')).toHaveValue('8');
+  await expect(bench.getByLabel('Set 1 weight')).toHaveValue('');
+  await bench.getByLabel('Set 1 reps').fill('12');
+  await bench.getByLabel('Set 1 weight').fill('42.5');
   await finish(page);
   await page.getByRole('button', { name: 'Done' }).click();
   await page.getByRole('button', { name: /Start Day 1/ }).click();
 
-  const bench = page.locator('.workout-activity').filter({ hasText: 'Bench Press' }).first();
-  await expect(bench.getByLabel('Set 1 reps')).toHaveValue('12');
-  await expect(bench.getByLabel('Set 1 weight')).toHaveValue('42.5');
-  await expect(bench.getByText('3 × 8–10')).toBeVisible();
-  await expect(bench.getByText(/Last: 2 sets/)).toBeVisible();
+  const benchAgain = page.locator('.workout-activity').filter({ hasText: 'Bench Press' }).first();
+  await expect(benchAgain.getByLabel('Set 1 reps')).toHaveValue('12');
+  await expect(benchAgain.getByLabel('Set 1 weight')).toHaveValue('42.5');
+  await expect(benchAgain.getByText('3 × 8–10')).toBeVisible();
+  await expect(benchAgain.getByText(/Last: 3 sets/)).toBeVisible();
 });
 
 test('supports per-set add/remove during an active workout', async ({ page }) => {
@@ -109,11 +112,12 @@ test('edits and deletes history without changing its timestamps or duration', as
   const metaBefore = await page.locator('.detail-meta').innerText();
 
   await page.getByRole('button', { name: 'Edit workout values' }).click();
-  await page.getByLabel('Set 1 reps').fill('11');
+  const benchDetail = page.locator('.detail-activity').filter({ hasText: 'Bench Press' }).first();
+  await benchDetail.getByLabel('Set 1 reps').fill('11');
   await page.getByRole('button', { name: 'Save changes' }).click();
   await expect(page.getByText('Workout values updated.')).toBeVisible();
   expect(await page.locator('.detail-meta').innerText()).toBe(metaBefore);
-  await expect(page.getByText('11 / 10 reps')).toBeVisible();
+  await expect(benchDetail.getByText(/11 \/ 10 \/ 8 reps/)).toBeVisible();
 
   await page.goto('/history');
   await expect(page.locator('.history-card')).toHaveCount(1);

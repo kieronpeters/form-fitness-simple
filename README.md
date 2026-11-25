@@ -15,6 +15,7 @@ More screens: [Activities](docs/screenshots/activities.png) · [Statistics](docs
 - **Workouts** — five editable preloaded programmes, large image cards, start/edit/duplicate/delete, and a last-completed marker.
 - **History** — completed sessions with date, time and duration. Open a session to correct recorded values; timestamps and duration stay immutable.
 - **Active workout** — one scrolling form with a pausable workout timer, a clear cancel action, per-activity countdown timers for duration-based entries, and an independent custom timer.
+- **Prefill** — when an exercise has history, every set is prefilled from the most recent recorded occurrence of that exercise **across all programmes**. If it has never been logged, the programme target fills the set count and rep defaults (for example 3 × 8), with weight left blank because no weight targets were supplied.
 - **Activities** — a focused library of only the activities used by the five programmes plus Treadmill and Back Stretches. Search, filter, edit, create and delete activities, with custom images.
 - **Statistics** — workout count, time, personal records, volume, sets, reps, longest session and streaks, all calculated from real saved sessions. No sample or fabricated numbers.
 - **Settings** — kg/lb units, JSON backup/restore, legacy backup download, reset and app information.
@@ -63,7 +64,7 @@ The scripts use `scripts/run.mjs`, which pins temporary build output to the proj
 
 ```bash
 npm run lint             # strict TypeScript check
-npm test                 # 15 Vitest tests
+npm test                 # 17 Vitest tests
 npm run test:e2e         # 19 Playwright checks
 npm run test:e2e:prod    # production build + service-worker/offline smoke test
 npm run verify           # lint + unit + browser + build + production
