@@ -65,6 +65,8 @@ export interface AppActions {
   saveActivity: (activity: Activity) => void;
   deleteActivity: (activityId: string) => DeleteActivityResult;
   startWorkout: (programId: string) => string | null;
+  pauseWorkout: () => void;
+  resumeWorkout: () => void;
   updateActiveSet: (
     activityId: string,
     setId: string,
@@ -257,6 +259,8 @@ export const useAppStore = create<AppStore>()(
           startedAt: nowIso(),
           completedAt: '',
           durationSec: 0,
+          pausedAt: null,
+          pausedDurationSec: 0,
           activities: program.activities
             .map((entry) => {
               const activity = state.activities.find((item) => item.id === entry.activityId);
@@ -273,6 +277,32 @@ export const useAppStore = create<AppStore>()(
         set({ activeSession: session });
         return session.id;
       },
+
+      pauseWorkout: () =>
+        set((state) => {
+          if (!state.activeSession || state.activeSession.pausedAt) return state;
+          return {
+            activeSession: {
+              ...state.activeSession,
+              pausedAt: nowIso(),
+            },
+          };
+        }),
+
+      resumeWorkout: () =>
+        set((state) => {
+          const active = state.activeSession;
+          if (!active?.pausedAt) return state;
+          const pausedAt = new Date(active.pausedAt).getTime();
+          const additional = Number.isFinite(pausedAt) ? Math.max(0, Date.now() - pausedAt) / 1000 : 0;
+          return {
+            activeSession: {
+              ...active,
+              pausedAt: null,
+              pausedDurationSec: (active.pausedDurationSec ?? 0) + additional,
+            },
+          };
+        }),
 
       updateActiveSet: (activityId, setId, patch) =>
         set((state) => {
@@ -344,13 +374,21 @@ export const useAppStore = create<AppStore>()(
         const completedAt = nowIso();
         const started = new Date(state.activeSession.startedAt).getTime();
         const ended = new Date(completedAt).getTime();
-        const durationSec = Math.max(1, Math.round((ended - started) / 1000));
+        const pausedAt = state.activeSession.pausedAt
+          ? new Date(state.activeSession.pausedAt).getTime()
+          : null;
+        const additionalPause =
+          pausedAt && Number.isFinite(pausedAt) ? Math.max(0, ended - pausedAt) / 1000 : 0;
+        const pausedSec = (state.activeSession.pausedDurationSec ?? 0) + additionalPause;
+        const durationSec = Math.max(1, Math.round((ended - started) / 1000 - pausedSec));
         const performed = state.activeSession.activities.filter(hasActivityData);
         if (!performed.length) return null;
         const session: Session = {
           ...state.activeSession,
           completedAt,
           durationSec,
+          pausedAt: null,
+          pausedDurationSec: pausedSec,
           activities: performed,
         };
         const improvements = detectImprovements(state.sessions, session);

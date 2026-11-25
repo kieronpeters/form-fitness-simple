@@ -8,6 +8,7 @@ import {
   formatDuration,
   formatTargetText,
   formatWeight,
+  sessionElapsedSec,
   sessionVolumeKg,
   toDisplayWeight,
 } from './training';
@@ -181,5 +182,14 @@ describe('workout statistics and records', () => {
     expect(toDisplayWeight(100, 'lb')).toBeCloseTo(220.46, 1);
     expect(formatDuration(0)).toBe('0 min');
     expect(formatDuration(3660)).toBe('1h 1m');
+  });
+
+  it('freezes elapsed time while the workout is paused', () => {
+    const active = session({
+      startedAt: '2026-01-01T10:00:00.000Z',
+      pausedAt: '2026-01-01T10:02:00.000Z',
+      pausedDurationSec: 30,
+    });
+    expect(sessionElapsedSec(active, new Date('2026-01-01T10:05:00.000Z').getTime())).toBe(90);
   });
 });

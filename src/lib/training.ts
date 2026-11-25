@@ -44,8 +44,21 @@ export function formatDuration(totalSeconds: number, style: 'short' | 'clock' = 
   return remaining === 0 ? `${hours}h` : `${hours}h ${remaining}m`;
 }
 
-export function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('en-GB', {
+export function sessionElapsedSec(
+  session: Pick<Session, 'startedAt' | 'pausedAt' | 'pausedDurationSec'>,
+  now = Date.now(),
+): number {
+  const started = new Date(session.startedAt).getTime();
+  if (!Number.isFinite(started)) return 0;
+  let pausedMs = Math.max(0, (session.pausedDurationSec ?? 0) * 1000);
+  if (session.pausedAt) {
+    const paused = new Date(session.pausedAt).getTime();
+    if (Number.isFinite(paused)) pausedMs += Math.max(0, now - paused);
+  }
+  return Math.max(0, Math.floor((now - started - pausedMs) / 1000));
+}
+
+export function formatDate(iso: string): string {  return new Date(iso).toLocaleDateString('en-GB', {
     weekday: 'short',
     day: 'numeric',
     month: 'short',

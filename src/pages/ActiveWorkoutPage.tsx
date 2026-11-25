@@ -1,13 +1,33 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, CheckCircle2, Clock3, Dumbbell, Flame, Trophy } from 'lucide-react';
+import {
+  ArrowLeft,
+  CheckCircle2,
+  Clock3,
+  Dumbbell,
+  Pause,
+  Play,
+  TimerReset,
+  Trophy,
+  X,
+} from 'lucide-react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import type { SessionActivity } from '../types';
 import { useAppStore, type WorkoutCompletion } from '../store/appStore';
 import { toast } from '../store/toastStore';
-import { formatDuration, formatSpeed, formatTargetText, formatWeight, sessionVolumeKg } from '../lib/training';
+import {
+  formatDuration,
+  formatSpeed,
+  formatTargetText,
+  formatWeight,
+  sessionElapsedSec,
+  sessionVolumeKg,
+} from '../lib/training';
+import { useCountdown } from '../hooks/useCountdown';
 import { EntityImage } from '../components/EntityImage';
 import { ActivityLogFields } from '../components/ActivityLogFields';
+import { ActivityTimer } from '../components/ActivityTimer';
 import { ConfirmDialog } from '../components/ConfirmDialog';
+import { Modal } from '../components/Modal';
 
 function previousFor(
   sessions: ReturnType<typeof useAppStore.getState>['sessions'],
@@ -55,21 +75,22 @@ export function ActiveWorkoutPage() {
   const addActiveSet = useAppStore((state) => state.addActiveSet);
   const removeActiveSet = useAppStore((state) => state.removeActiveSet);
   const updateActiveMetrics = useAppStore((state) => state.updateActiveMetrics);
+  const pauseWorkout = useAppStore((state) => state.pauseWorkout);
+  const resumeWorkout = useAppStore((state) => state.resumeWorkout);
   const finishWorkout = useAppStore((state) => state.finishWorkout);
   const discardWorkout = useAppStore((state) => state.discardWorkout);
-  const [elapsed, setElapsed] = useState(0);
-  const [discardOpen, setDiscardOpen] = useState(false);
+  const [now, setNow] = useState(() => Date.now());
+  const [cancelOpen, setCancelOpen] = useState(false);
   const [completion, setCompletion] = useState<WorkoutCompletion | null>(null);
+  const customTimer = useCountdown();
+  const [customOpen, setCustomOpen] = useState(false);
+  const [customMinutes, setCustomMinutes] = useState('5');
+  const [customSeconds, setCustomSeconds] = useState('0');
 
   useEffect(() => {
-    if (!activeSession) return;
-    const update = () => {
-      setElapsed(Math.max(0, Math.round((Date.now() - new Date(activeSession.startedAt).getTime()) / 1000)));
-    };
-    update();
-    const interval = window.setInterval(update, 1000);
+    const interval = window.setInterval(() => setNow(Date.now()), 1000);
     return () => window.clearInterval(interval);
-  }, [activeSession]);
+  }, []);
 
   const previousMap = useMemo(() => {
     const map = new Map<string, SessionActivity | null>();
@@ -81,7 +102,8 @@ export function ActiveWorkoutPage() {
 
   if (!activeSession && !completion) return <Navigate to="/" replace />;
 
-  if (completion) {    const volume = sessionVolumeKg(completion.session);
+  if (completion) {
+    const volume = sessionVolumeKg(completion.session);
     return (
       <div className="page page--finish">
         <div className="finish-hero">
@@ -119,6 +141,13 @@ export function ActiveWorkoutPage() {
   if (!activeSession) return <Navigate to="/" replace />;
 
   const session = activeSession;
+  const paused = Boolean(session.pausedAt);
+  const elapsed = sessionElapsedSec(session, now);
+  const customTotal = Math.max(0, (Number(customMinutes) || 0) * 60 + (Number(customSeconds) || 0));
+  const customLabel = customTimer.completed
+    ? 'Done'
+    : formatDuration(customTimer.remainingSec, 'clock');
+
   const handleFinish = () => {
     const result = finishWorkout();
     if (!result) {
@@ -126,6 +155,15 @@ export function ActiveWorkoutPage() {
       return;
     }
     setCompletion(result);
+  };
+
+  const startCustom = () => {
+    if (customTotal < 1) {
+      toast('Set a timer duration greater than zero.', 'error');
+      return;
+    }
+    customTimer.start(customTotal);
+    setCustomOpen(false);
   };
 
   return (
@@ -136,10 +174,23 @@ export function ActiveWorkoutPage() {
         </button>
         <div className="workout-topbar__title">
           <h1>{session.programName}</h1>
-          <span className="live-timer"><Clock3 size={14} /> {formatDuration(elapsed, 'clock')}</span>
+          <div className="workout-timer-line">
+            <span className={`live-timer${paused ? ' is-paused' : ''}`}>
+              <Clock3 size={14} /> {formatDuration(elapsed, 'clock')}
+              {paused && <em>Paused</em>}
+            </span>
+            <button
+              type="button"
+              className="timer-control"
+              onClick={() => (paused ? resumeWorkout() : pauseWorkout())}
+              aria-label={paused ? 'Resume workout timer' : 'Pause workout timer'}
+            >
+              {paused ? <Play size={14} fill="currentColor" /> : <Pause size={14} fill="currentColor" />}
+            </button>
+          </div>
         </div>
-        <button type="button" className="icon-button" onClick={() => setDiscardOpen(true)} aria-label="Discard workout">
-          <Flame size={21} />
+        <button type="button" className="icon-button" onClick={() => setCancelOpen(true)} aria-label="Cancel workout">
+          <X size={22} />
         </button>
       </header>
 
@@ -147,9 +198,33 @@ export function ActiveWorkoutPage() {
         <EntityImage src={session.programCover} alt="" className="workout-hero__image" />
         <div className="workout-hero__overlay">
           <span>{session.activities.length} activities</span>
-          <strong>In progress</strong>
+          <strong>{paused ? 'Paused' : 'In progress'}</strong>
         </div>
       </section>
+
+      <div className="workout-tools">
+        <button type="button" className="timer-tool" onClick={() => setCustomOpen(true)}>
+          <TimerReset size={16} />
+          <span>Custom timer</span>
+        </button>
+        {customTimer.durationSec > 0 && (
+          <div className={`custom-timer-inline${customTimer.running ? ' is-running' : ''}${customTimer.completed ? ' is-complete' : ''}`}>
+            <span>{customLabel}</span>
+            {!customTimer.completed && (
+              <button
+                type="button"
+                onClick={() => (customTimer.running ? customTimer.pause() : customTimer.resume())}
+                aria-label={customTimer.running ? 'Pause custom timer' : 'Resume custom timer'}
+              >
+                {customTimer.running ? <Pause size={14} /> : <Play size={14} fill="currentColor" />}
+              </button>
+            )}
+            <button type="button" onClick={customTimer.reset} aria-label="Reset custom timer">
+              <X size={14} />
+            </button>
+          </div>
+        )}
+      </div>
 
       <div className="workout-activities">
         {session.activities.map((activity, index) => {
@@ -170,6 +245,12 @@ export function ActiveWorkoutPage() {
               </div>
               {previous && <p className="previous-line">{previousLabel(previous, weightUnit)}</p>}
               {activity.target.note && <p className="programme-note">{activity.target.note}</p>}
+              {activity.fields.includes('duration') && (
+                <div className="activity-timer-row">
+                  <span>Timer</span>
+                  <ActivityTimer label={activity.label} seconds={activity.durationSec} />
+                </div>
+              )}
               <ActivityLogFields
                 activity={activity}
                 weightUnit={weightUnit}
@@ -189,13 +270,56 @@ export function ActiveWorkoutPage() {
         </button>
       </div>
 
+      <Modal
+        open={customOpen}
+        onClose={() => setCustomOpen(false)}
+        title="Custom timer"
+        subtitle="Runs independently of the workout timer."
+        footer={
+          <>
+            <button type="button" className="button button--ghost" onClick={() => setCustomOpen(false)}>Close</button>
+            <button type="button" className="button button--primary" onClick={startCustom}>Start timer</button>
+          </>
+        }
+      >
+        <div className="timer-inputs">
+          <label className="field">
+            <span>Minutes</span>
+            <input
+              type="number"
+              min={0}
+              inputMode="numeric"
+              value={customMinutes}
+              onChange={(event) => setCustomMinutes(event.target.value)}
+            />
+          </label>
+          <label className="field">
+            <span>Seconds</span>
+            <input
+              type="number"
+              min={0}
+              max={59}
+              inputMode="numeric"
+              value={customSeconds}
+              onChange={(event) => setCustomSeconds(event.target.value)}
+            />
+          </label>
+        </div>
+        {customTimer.durationSec > 0 && (
+          <div className="custom-timer-sheet-value">
+            <strong>{customLabel}</strong>
+            <span>{customTimer.running ? 'Running' : customTimer.completed ? 'Complete' : 'Paused'}</span>
+          </div>
+        )}
+      </Modal>
+
       <ConfirmDialog
-        open={discardOpen}
-        title="Leave this workout?"
+        open={cancelOpen}
+        title="Cancel this workout?"
         message="This will discard the workout and everything you have entered. Use the back arrow instead if you want to leave it resumable from Workouts."
-        confirmLabel="Discard workout"
+        confirmLabel="Cancel workout"
         danger
-        onClose={() => setDiscardOpen(false)}
+        onClose={() => setCancelOpen(false)}
         onConfirm={() => {
           discardWorkout();
           navigate('/');

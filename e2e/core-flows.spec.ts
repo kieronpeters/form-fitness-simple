@@ -68,6 +68,38 @@ test('supports per-set add/remove during an active workout', async ({ page }) =>
   await expect(bench.locator('.set-row')).toHaveCount(3);
 });
 
+test('pauses and resumes the workout timer, and can cancel a mistaken workout', async ({ page }) => {
+  await startPush(page);
+  await page.getByRole('button', { name: 'Pause workout timer' }).click();
+  await expect(page.locator('.live-timer.is-paused')).toContainText('Paused');
+  await page.getByRole('button', { name: 'Resume workout timer' }).click();
+  await expect(page.getByRole('button', { name: 'Pause workout timer' })).toBeVisible();
+
+  await page.getByRole('button', { name: 'Cancel workout' }).click();
+  await expect(page.getByText('Cancel this workout?')).toBeVisible();
+  await page.getByRole('button', { name: 'Cancel workout' }).last().click();
+  await expect(page).toHaveURL(/\/$/);
+  await page.goto('/history');
+  await expect(page.getByText('No workouts logged yet')).toBeVisible();
+});
+
+test('runs per-activity duration timers and a custom timer independently', async ({ page }) => {
+  await startPush(page);
+  const treadmill = page.locator('.workout-activity').filter({ hasText: 'Treadmill (Warm-up)' }).first();
+  await treadmill.getByRole('button', { name: /Start timer for Treadmill/ }).click();
+  await expect(treadmill.getByText('00:05:00')).toBeVisible();
+  await treadmill.getByRole('button', { name: /Pause timer for Treadmill/ }).click();
+  await expect(treadmill.getByRole('button', { name: /Resume timer for Treadmill/ })).toBeVisible();
+
+  await page.getByRole('button', { name: 'Custom timer' }).click();
+  await page.getByLabel('Minutes', { exact: true }).fill('1');
+  await page.getByLabel('Seconds', { exact: true }).fill('30');
+  await page.getByRole('button', { name: 'Start timer', exact: true }).click();
+  await expect(page.locator('.custom-timer-inline')).toContainText('00:01:30');
+  await page.getByRole('button', { name: 'Pause custom timer' }).click();
+  await expect(page.getByRole('button', { name: 'Resume custom timer' })).toBeVisible();
+});
+
 test('edits and deletes history without changing its timestamps or duration', async ({ page }) => {
   await startPush(page);
   await fillBench(page);

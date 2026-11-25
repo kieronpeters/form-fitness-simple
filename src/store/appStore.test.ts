@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { buildFreshData } from '../data/migration';
 import { useAppStore } from './appStore';
 
@@ -25,6 +25,24 @@ function startPush() {
 
 describe('workout store', () => {
   beforeEach(resetStore);
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('excludes paused time from the saved duration', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-01-01T10:00:00.000Z'));
+    const { bench } = startPush();
+    useAppStore.getState().updateActiveSet(bench.id, bench.sets[0].id, { reps: 10, weightKg: 60 });
+    vi.advanceTimersByTime(60_000);
+    useAppStore.getState().pauseWorkout();
+    vi.advanceTimersByTime(120_000);
+    useAppStore.getState().resumeWorkout();
+    vi.advanceTimersByTime(60_000);
+    const completion = useAppStore.getState().finishWorkout();
+    expect(completion?.session.durationSec).toBe(120);
+  });
 
   it('seeds five programmes and allows a workout to be completed', () => {
     expect(useAppStore.getState().programs).toHaveLength(5);

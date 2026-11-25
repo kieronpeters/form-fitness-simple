@@ -87,6 +87,8 @@ export interface Session {
   startedAt: string;
   completedAt: string;
   durationSec: number;
+  pausedAt?: string | null;
+  pausedDurationSec?: number;
   activities: SessionActivity[];
   notes?: string;
   isSample?: boolean;
