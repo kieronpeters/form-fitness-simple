@@ -110,6 +110,8 @@ The new five example programmes are still installed once. The old data is never 
 
 The wrapper bundles the production web app inside a small WebView shell and serves it from a loopback origin, keeping local storage and IndexedDB persistent. The package id remains `com.kieronpeters.form` so installing over the previous app upgrades it and runs the data migration. It is locally signed for sideloading, not a Play Store artifact. See `android/README.md` for prerequisites.
 
+![Form Fitness running on the Galaxy S23 Ultra](docs/screenshots/installed-s23.png)
+
 ## Project structure
 
 ```text
