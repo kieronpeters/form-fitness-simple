@@ -89,10 +89,23 @@ test('pauses and resumes the workout timer, and can cancel a mistaken workout', 
 test('runs per-activity duration timers and a custom timer independently', async ({ page }) => {
   await startPush(page);
   const treadmill = page.locator('.workout-activity').filter({ hasText: 'Treadmill (Warm-up)' }).first();
+  await treadmill.getByLabel('Duration (minutes)').fill('7');
+  await treadmill.getByLabel('Speed (km/h)').fill('6.2');
+  await treadmill.getByLabel('Incline').fill('10');
+  await expect(treadmill.getByLabel('Duration (minutes)')).toHaveValue('7');
+  await expect(treadmill.getByLabel('Speed (km/h)')).toHaveValue('6.2');
+  await expect(treadmill.getByLabel('Incline')).toHaveValue('10');
+
   await treadmill.getByRole('button', { name: /Start timer for Treadmill/ }).click();
-  await expect(treadmill.getByText('00:05:00')).toBeVisible();
+  await expect(treadmill.getByText('00:07:00')).toBeVisible();
   await treadmill.getByRole('button', { name: /Pause timer for Treadmill/ }).click();
   await expect(treadmill.getByRole('button', { name: /Resume timer for Treadmill/ })).toBeVisible();
+
+  const backStretches = page.locator('.workout-activity').filter({ hasText: 'Back Stretches' }).first();
+  await backStretches.getByLabel('Duration (minutes)').fill('6');
+  await backStretches.getByLabel('Notes').fill('Hamstring focus');
+  await expect(backStretches.getByLabel('Duration (minutes)')).toHaveValue('6');
+  await expect(backStretches.getByLabel('Notes')).toHaveValue('Hamstring focus');
 
   await page.getByRole('button', { name: 'Custom timer' }).click();
   await page.getByLabel('Minutes', { exact: true }).fill('1');

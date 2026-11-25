@@ -357,7 +357,7 @@ export const useAppStore = create<AppStore>()(
             activeSession: {
               ...state.activeSession,
               activities: state.activeSession.activities.map((activity) =>
-                activity.activityId === activityId ? { ...activity, ...patch } : activity,
+                activity.id === activityId ? { ...activity, ...patch } : activity,
               ),
             },
           };

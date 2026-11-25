@@ -64,7 +64,7 @@ The scripts use `scripts/run.mjs`, which pins temporary build output to the proj
 
 ```bash
 npm run lint             # strict TypeScript check
-npm test                 # 17 Vitest tests
+npm test                 # 18 Vitest tests
 npm run test:e2e         # 19 Playwright checks
 npm run test:e2e:prod    # production build + service-worker/offline smoke test
 npm run verify           # lint + unit + browser + build + production

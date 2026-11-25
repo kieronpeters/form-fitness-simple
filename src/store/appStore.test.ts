@@ -71,6 +71,22 @@ describe('workout store', () => {
     useAppStore.getState().discardWorkout();
   });
 
+  it('edits prefilled duration metrics and saves them', () => {
+    const { active } = startPush();
+    const treadmill = active.activities.find((activity) => activity.activityId === 'treadmill');
+    expect(treadmill).toBeTruthy();
+    useAppStore.getState().updateActiveMetrics(treadmill!.id, {
+      durationSec: 7 * 60,
+      speedKmh: 6.2,
+      incline: 10,
+    });
+    const completion = useAppStore.getState().finishWorkout();
+    const saved = completion?.session.activities.find((activity) => activity.activityId === 'treadmill');
+    expect(saved?.durationSec).toBe(420);
+    expect(saved?.speedKmh).toBe(6.2);
+    expect(saved?.incline).toBe(10);
+  });
+
   it('prefills the next session with the last performance', () => {
     const first = startPush();
     useAppStore.getState().updateActiveSet(first.bench.id, first.bench.sets[0].id, { reps: 12, weightKg: 42.5 });
